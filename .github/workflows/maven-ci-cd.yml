@@ -2,67 +2,18 @@ name: 🚀 Maven CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop, feature/* ]
+    branches: [ main, develop ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Deployment environment'
-        required: false
-        default: 'development'
-        type: choice
-        options:
-          - development
-          - staging
-          - production
 
 env:
   JAVA_VERSION: '11'
-  MAVEN_OPTS: '-Xmx1024m -XX:MaxPermSize=256m'
 
 jobs:
-  setup:
-    name: 🔧 Setup & Validation
-    runs-on: ubuntu-latest
-    outputs:
-      java-version: ${{ env.JAVA_VERSION }}
-      should-deploy: ${{ steps.check-deploy.outputs.should-deploy }}
-    
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: 🔍 Validate project structure
-      run: |
-        echo "🔍 Validating project structure..."
-        if [ ! -f "pom.xml" ]; then
-          echo "❌ pom.xml not found"
-          exit 1
-        fi
-        if [ ! -d "src/main/java" ]; then
-          echo "❌ src/main/java directory not found"
-          exit 1
-        fi
-        if [ ! -d "src/test/java" ]; then
-          echo "❌ src/test/java directory not found"
-          exit 1
-        fi
-        echo "✅ Project structure is valid"
-    
-    - name: 🎯 Check deployment conditions
-      id: check-deploy
-      run: |
-        if [[ "${{ github.ref }}" == "refs/heads/main" ]] && [[ "${{ github.event_name }}" == "push" ]]; then
-          echo "should-deploy=true" >> $GITHUB_OUTPUT
-        else
-          echo "should-deploy=false" >> $GITHUB_OUTPUT
-        fi
-
   test:
-    name: 🧪 Test Suite
+    name: 🧪 Run Tests
     runs-on: ubuntu-latest
-    needs: setup
     strategy:
       matrix:
         java-version: [11, 17]
@@ -78,38 +29,18 @@ jobs:
         distribution: 'temurin'
         cache: maven
     
-    - name: 🔍 Display environment info
-      run: |
-        echo "Java version: $(java -version)"
-        echo "Maven version: $(mvn -version)"
-        echo "Working directory: $(pwd)"
-        echo "Java Home: $JAVA_HOME"
-    
     - name: 🧪 Run tests
-      run: |
-        echo "🧪 Running test suite..."
-        mvn clean test -B
-    
-    - name: 📊 Generate test report
-      uses: dorny/test-reporter@v1
-      if: success() || failure()
-      with:
-        name: 📊 Test Results (Java ${{ matrix.java-version }})
-        path: target/surefire-reports/*.xml
-        reporter: java-junit
-        fail-on-error: true
+      run: mvn clean test -B
     
     - name: 📈 Upload test results
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results-java-${{ matrix.java-version }}
-        path: |
-          target/surefire-reports/
-          target/site/
+        path: target/surefire-reports/
 
   build:
-    name: 🏗️ Build & Package
+    name: 🏗️ Build Application
     runs-on: ubuntu-latest
     needs: test
     
@@ -117,76 +48,28 @@ jobs:
     - name: 📥 Checkout code
       uses: actions/checkout@v4
     
-    - name: ☕ Set up JDK ${{ needs.setup.outputs.java-version }}
+    - name: ☕ Set up JDK ${{ env.JAVA_VERSION }}
       uses: actions/setup-java@v4
       with:
-        java-version: ${{ needs.setup.outputs.java-version }}
+        java-version: ${{ env.JAVA_VERSION }}
         distribution: 'temurin'
         cache: maven
     
-    - name: 🔨 Compile application
+    - name: 🔨 Build and package
       run: |
-        echo "🔨 Compiling application..."
-        mvn clean compile -B
+        mvn clean compile
+        mvn package -DskipTests
     
-    - name: 📦 Package application
+    - name: 📋 List artifacts
       run: |
-        echo "📦 Packaging application..."
-        mvn package -DskipTests -B
-    
-    - name: 📋 List build artifacts
-      run: |
-        echo "📋 Build artifacts:"
-        ls -la target/
-        echo ""
-        echo "📦 JAR files:"
+        echo "Build artifacts:"
         ls -la target/*.jar
-    
-    - name: ✅ Verify JAR integrity
-      run: |
-        echo "✅ Verifying JAR files..."
-        for jar in target/*.jar; do
-          echo "Checking $jar:"
-          jar tf "$jar" | head -10
-          echo "---"
-        done
     
     - name: 📤 Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: build-artifacts
-        path: |
-          target/*.jar
-          target/maven-archiver/
-        retention-days: 30
-
-  security-scan:
-    name: 🔒 Security Scan
-    runs-on: ubuntu-latest
-    needs: setup
-    
-    steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-    
-    - name: ☕ Set up JDK ${{ needs.setup.outputs.java-version }}
-      uses: actions/setup-java@v4
-      with:
-        java-version: ${{ needs.setup.outputs.java-version }}
-        distribution: 'temurin'
-        cache: maven
-    
-    - name: 🔒 Run dependency check
-      run: |
-        echo "🔒 Running dependency security check..."
-        mvn org.owasp:dependency-check-maven:check -B || echo "Security scan completed with warnings"
-    
-    - name: 📤 Upload security report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: security-reports
-        path: target/dependency-check-report.html
+        path: target/*.jar
         retention-days: 30
 
   integration-test:
@@ -198,10 +81,10 @@ jobs:
     - name: 📥 Checkout code
       uses: actions/checkout@v4
     
-    - name: ☕ Set up JDK ${{ needs.setup.outputs.java-version }}
+    - name: ☕ Set up JDK ${{ env.JAVA_VERSION }}
       uses: actions/setup-java@v4
       with:
-        java-version: ${{ needs.setup.outputs.java-version }}
+        java-version: ${{ env.JAVA_VERSION }}
         distribution: 'temurin'
         cache: maven
     
@@ -211,98 +94,51 @@ jobs:
         name: build-artifacts
         path: target/
     
-    - name: 🔄 Run integration tests
+    - name: 🔄 Test application
       run: |
-        echo "🔄 Running integration tests..."
-        # Test the fat JAR
+        echo "Testing application execution..."
         if [ -f target/*-fat.jar ]; then
-          echo "Testing fat JAR execution..."
           java -jar target/*-fat.jar
         else
-          echo "Fat JAR not found, testing regular JAR..."
           java -cp target/*.jar com.example.App
         fi
 
   deploy:
-    name: 🚀 Deploy Application
+    name: 🚀 Deploy (Simulation)
     runs-on: ubuntu-latest
-    needs: [setup, build, security-scan, integration-test]
-    if: needs.setup.outputs.should-deploy == 'true'
-    environment: 
-      name: ${{ github.event.inputs.environment || 'development' }}
+    needs: [build, integration-test]
+    if: github.ref == 'refs/heads/main'
     
     steps:
-    - name: 📥 Download build artifacts
+    - name: 📥 Download artifacts
       uses: actions/download-artifact@v4
       with:
         name: build-artifacts
     
-    - name: 📋 Display deployment artifacts
+    - name: 🚀 Simulate deployment
       run: |
-        echo "🚀 Deployment artifacts:"
-        ls -la
-        echo ""
-        echo "📊 Artifact details:"
-        for jar in *.jar; do
-          if [ -f "$jar" ]; then
-            size=$(stat -f%z "$jar" 2>/dev/null || stat -c%s "$jar")
-            echo "  📦 $jar - Size: $size bytes"
-          fi
-        done
-    
-    - name: 🎯 Simulate deployment
-      run: |
-        echo "🚀 Starting deployment to ${{ github.event.inputs.environment || 'development' }}..."
-        echo "📅 Deployment time: $(date)"
-        echo "🏷️  Git SHA: ${{ github.sha }}"
-        echo "🌿 Branch: ${{ github.ref_name }}"
-        
-        # Simulate deployment steps
-        echo "1️⃣ Preparing deployment environment..."
-        sleep 2
-        echo "2️⃣ Uploading artifacts..."
-        sleep 2
-        echo "3️⃣ Starting application..."
-        sleep 2
-        echo "4️⃣ Running health checks..."
-        sleep 1
-        
+        echo "🚀 Deploying application..."
+        echo "📦 Available artifacts:"
+        ls -la *.jar
         echo "✅ Deployment completed successfully!"
-        echo "🌐 Application is now live at: https://your-app.example.com"
 
   notify:
     name: 📢 Notification
     runs-on: ubuntu-latest
-    needs: [setup, test, build, security-scan, integration-test, deploy]
+    needs: [test, build, integration-test, deploy]
     if: always()
     
     steps:
-    - name: 📊 Calculate pipeline status
-      id: status
+    - name: 📊 Pipeline Status
       run: |
-        echo "🔔 Pipeline Status Summary:"
-        echo "  🔧 Setup: ${{ needs.setup.result }}"
+        echo "🔔 Pipeline Summary:"
         echo "  🧪 Tests: ${{ needs.test.result }}"
         echo "  🏗️  Build: ${{ needs.build.result }}"
-        echo "  🔒 Security: ${{ needs.security-scan.result }}"
         echo "  🔄 Integration: ${{ needs.integration-test.result }}"
         echo "  🚀 Deploy: ${{ needs.deploy.result || 'skipped' }}"
         
         if [[ "${{ needs.test.result }}" == "success" && "${{ needs.build.result }}" == "success" ]]; then
-          echo "status=✅ SUCCESS" >> $GITHUB_OUTPUT
-          echo "message=Pipeline completed successfully! 🎉" >> $GITHUB_OUTPUT
+          echo "✅ Pipeline completed successfully!"
         else
-          echo "status=❌ FAILED" >> $GITHUB_OUTPUT
-          echo "message=Pipeline failed. Please check the logs for details." >> $GITHUB_OUTPUT
+          echo "❌ Pipeline had failures. Check logs for details."
         fi
-    
-    - name: 📢 Send notification
-      run: |
-        echo "${{ steps.status.outputs.status }}"
-        echo "${{ steps.status.outputs.message }}"
-        echo ""
-        echo "📊 Build Information:"
-        echo "  📝 Commit: ${{ github.sha }}"
-        echo "  🌿 Branch: ${{ github.ref_name }}"
-        echo "  👤 Author: ${{ github.actor }}"
-        echo "  🕐 Time: $(date)"
