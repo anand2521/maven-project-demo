@@ -1,0 +1,31 @@
+name: Minikube Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+
+    - name: Verify cluster
+      run: kubectl get pods -A
+
+    - name: Deploy to Minikube
+      run: |
+        kubectl apply -f k8s/springboot-deployment.yaml
+        kubectl apply -f k8s/springboot-service.yaml
+        kubectl apply -f k8s/springboot-ingress.yaml
+        kubectl wait --for=condition=ready pod -l app=springboot --timeout=60s
+
+    - name: Access service URL
+      run: |
+        minikube service list
+        minikube service tcs-demo-nodeport-service --url
+
