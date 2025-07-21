@@ -5,7 +5,6 @@ import java.time.format.DateTimeFormatter;
 
 /**
  * Maven Project Demo Application
- * Demonstrates GitHub Actions CI/CD with Maven
  */
 public class App {
     
@@ -42,18 +41,15 @@ public class App {
         System.out.println("🧮 Mathematical Operations:");
         System.out.println("  Addition: 15 + 25 = " + add(15, 25));
         System.out.println("  Multiplication: 7 × 8 = " + multiply(7, 8));
-        System.out.println("  Power: 2^5 = " + power(2, 5));
         
         System.out.println();
         System.out.println("🔍 Utility Functions:");
         System.out.println("  Is 42 even? " + isEven(42));
-        System.out.println("  Is 17 prime? " + isPrime(17));
         System.out.println("  Factorial of 5: " + factorial(5));
         
         System.out.println();
         System.out.println("📝 String Operations:");
         System.out.println("  Reversed 'GitHub': " + reverseString("GitHub"));
-        System.out.println("  'Actions' palindrome? " + isPalindrome("Actions"));
         System.out.println("  'level' palindrome? " + isPalindrome("level"));
     }
     
@@ -66,31 +62,9 @@ public class App {
         return a * b;
     }
     
-    public long power(int base, int exponent) {
-        if (exponent < 0) throw new IllegalArgumentException("Exponent must be non-negative");
-        long result = 1;
-        for (int i = 0; i < exponent; i++) {
-            result *= base;
-        }
-        return result;
-    }
-    
     // Utility functions
     public boolean isEven(int number) {
         return number % 2 == 0;
-    }
-    
-    public boolean isPrime(int number) {
-        if (number <= 1) return false;
-        if (number <= 3) return true;
-        if (number % 2 == 0 || number % 3 == 0) return false;
-        
-        for (int i = 5; i * i <= number; i += 6) {
-            if (number % i == 0 || number % (i + 2) == 0) {
-                return false;
-            }
-        }
-        return true;
     }
     
     public long factorial(int n) {
